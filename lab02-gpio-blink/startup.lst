@@ -1,0 +1,86 @@
+
+bin/startup.bin:     file format binary
+
+
+Disassembly of section .data:
+
+00000000 <.data>:
+   0:	e10f0000 	mrs	r0, CPSR
+   4:	e3c0001f 	bic	r0, r0, #31
+   8:	e3800013 	orr	r0, r0, #19
+   c:	e38000c0 	orr	r0, r0, #192	@ 0xc0
+  10:	e121f000 	msr	CPSR_c, r0
+  14:	eb000027 	bl	0xb8
+  18:	e3a05000 	mov	r5, #0
+  1c:	e3550000 	cmp	r5, #0
+  20:	0a000000 	beq	0x28
+  24:	1a000016 	bne	0x84
+  28:	eb00001e 	bl	0xa8
+  2c:	e59f00f0 	ldr	r0, [pc, #240]	@ 0x124
+  30:	e3a01602 	mov	r1, #2097152	@ 0x200000
+  34:	e5801000 	str	r1, [r0]
+  38:	eb000035 	bl	0x114
+  3c:	eb000019 	bl	0xa8
+  40:	e59f00dc 	ldr	r0, [pc, #220]	@ 0x124
+  44:	e3a01501 	mov	r1, #4194304	@ 0x400000
+  48:	e5801000 	str	r1, [r0]
+  4c:	eb000030 	bl	0x114
+  50:	eb000014 	bl	0xa8
+  54:	e59f00c8 	ldr	r0, [pc, #200]	@ 0x124
+  58:	e3a01502 	mov	r1, #8388608	@ 0x800000
+  5c:	e5801000 	str	r1, [r0]
+  60:	eb00002b 	bl	0x114
+  64:	eb00000f 	bl	0xa8
+  68:	e59f00b4 	ldr	r0, [pc, #180]	@ 0x124
+  6c:	e3a01401 	mov	r1, #16777216	@ 0x1000000
+  70:	e5801000 	str	r1, [r0]
+  74:	eb000026 	bl	0x114
+  78:	eb00000a 	bl	0xa8
+  7c:	eb00001a 	bl	0xec
+  80:	eaffffe5 	b	0x1c
+  84:	eb000007 	bl	0xa8
+  88:	e59f0094 	ldr	r0, [pc, #148]	@ 0x124
+  8c:	e3a01801 	mov	r1, #65536	@ 0x10000
+  90:	e5801000 	str	r1, [r0]
+  94:	eb00001e 	bl	0x114
+  98:	eb000002 	bl	0xa8
+  9c:	eb00001c 	bl	0x114
+  a0:	eb000011 	bl	0xec
+  a4:	eaffffdc 	b	0x1c
+  a8:	e59f0078 	ldr	r0, [pc, #120]	@ 0x128
+  ac:	e59f1078 	ldr	r1, [pc, #120]	@ 0x12c
+  b0:	e5801000 	str	r1, [r0]
+  b4:	e12fff1e 	bx	lr
+  b8:	e59f0070 	ldr	r0, [pc, #112]	@ 0x130
+  bc:	e3a01002 	mov	r1, #2
+  c0:	e5801000 	str	r1, [r0]
+  c4:	e59f0068 	ldr	r0, [pc, #104]	@ 0x134
+  c8:	e5901000 	ldr	r1, [r0]
+  cc:	e3c11801 	bic	r1, r1, #65536	@ 0x10000
+  d0:	e3c11602 	bic	r1, r1, #2097152	@ 0x200000
+  d4:	e3c11501 	bic	r1, r1, #4194304	@ 0x400000
+  d8:	e3c11502 	bic	r1, r1, #8388608	@ 0x800000
+  dc:	e3c11401 	bic	r1, r1, #16777216	@ 0x1000000
+  e0:	e3811201 	orr	r1, r1, #268435456	@ 0x10000000
+  e4:	e5801000 	str	r1, [r0]
+  e8:	e12fff1e 	bx	lr
+  ec:	e59f0044 	ldr	r0, [pc, #68]	@ 0x138
+  f0:	e3a01201 	mov	r1, #268435456	@ 0x10000000
+  f4:	e5902000 	ldr	r2, [r0]
+  f8:	e1120001 	tst	r2, r1
+  fc:	0afffffc 	beq	0xf4
+ 100:	e2255001 	eor	r5, r5, #1
+ 104:	e5902000 	ldr	r2, [r0]
+ 108:	e1120001 	tst	r2, r1
+ 10c:	1afffffc 	bne	0x104
+ 110:	e12fff1e 	bx	lr
+ 114:	e3e024f9 	mvn	r2, #-117440512	@ 0xf9000000
+ 118:	e2522001 	subs	r2, r2, #1
+ 11c:	1afffffd 	bne	0x118
+ 120:	e12fff1e 	bx	lr
+ 124:	4804c194 	stmdami	r4, {r2, r4, r7, r8, lr, pc}
+ 128:	4804c190 	stmdami	r4, {r4, r7, r8, lr, pc}
+ 12c:	01f10000 	mvnseq	r0, r0
+ 130:	44e000ac 	strbtmi	r0, [r0], #172	@ 0xac
+ 134:	4804c134 	stmdami	r4, {r2, r4, r5, r8, lr, pc}
+ 138:	4804c138 	stmdami	r4, {r3, r4, r5, r8, lr, pc}
