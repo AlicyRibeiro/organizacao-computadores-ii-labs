@@ -24,6 +24,7 @@ Os experimentos envolvem:
 ```
 organizacao-computadores-ii-labs/
 │
+├── images/               # imagens dos labs funcionando
 ├── docs/                 # enunciados das práticas
 ├── lab01-makefile/
 ├── lab02-gpio-blink/
