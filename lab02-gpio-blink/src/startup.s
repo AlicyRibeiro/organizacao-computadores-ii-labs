@@ -1,3 +1,29 @@
+/*
+ * =====================================================================================
+ *
+ *       Filename:  <startup.s>
+ *
+ *    Description:  Código desenvolvido para a prática da disciplina
+ *                  Organização de Computadores e Linguagens de Montagem II.
+ *
+ *        Version:  1.0
+ *        Created:  2025
+ *       Revision:  none
+ *
+ *         Author:  Ana Alicy Ribeiro
+ *        Contact:  github.com/AlicyRibeiro
+ *   Organization:  Universidade Federal do Ceará - Campus Quixadá
+ *
+ *   GitHub Repo:   organizacao-computadores-ii-labs
+ *
+ *
+ *   Notes:
+ *   Este código foi desenvolvido exclusivamente para fins educacionais.
+ *
+ * =====================================================================================
+ */
+
+
 .equ CM_PER_GPIO1_CLKCTRL,     0x44E000AC
 .equ GPIO1_BASE,               0x4804C000
 .equ GPIO1_OE,                 0x4804C134
