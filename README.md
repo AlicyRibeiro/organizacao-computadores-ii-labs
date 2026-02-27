@@ -37,17 +37,7 @@ organizacao-computadores-ii-labs/
 
 # Como compilar
 
-Dentro da pasta da prática:
-
-```
-make
-```
-
- Limpar build
-```
-make clean
-```
-
+📌 Status: 🚧 Em andamento
 
 ---
 
@@ -62,3 +52,8 @@ make clean
 ✔️ GPIO como entrada (botão)
 
 ---
+
+# Dupla:
+
+- **Ana Alicy**
+- **Ana Amélia**
