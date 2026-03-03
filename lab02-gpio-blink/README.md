@@ -57,6 +57,7 @@ lab02-gpio-blink/
 │   └── memmap.ld
 │   └── startup.s
 ├── Makefile
+├── comando
 └── startup.lst
 
 ```
