@@ -41,7 +41,7 @@ A prática consiste em configurar o Controlador de Interrupções (INTC) e a Tab
 # Estrutura da prática
 
 ``` 
-lab04-gpio-interrupt/
+lab03-gpio-interrupt/
 │
 ├── bin/
 │   └── startup.bin
