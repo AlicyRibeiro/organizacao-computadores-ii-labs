@@ -1,0 +1,317 @@
+.syntax unified
+.cpu cortex-a8
+.arm
+
+.global _start
+
+/* =====================================================
+   ENDEREÇOS
+   ===================================================== */
+
+/* GPIO1 */
+.equ CM_PER_GPIO1_CLKCTRL,  0x44E000AC
+.equ GPIO1_BASE,            0x4804C000
+.equ GPIO1_OE,              0x4804C134
+.equ GPIO1_SETDATAOUT,      0x4804C194
+.equ GPIO1_CLEARDATAOUT,    0x4804C190
+.equ GPIO1_IRQSTATUS_0,     0x4804C02C
+.equ GPIO1_IRQSTATUS_SET_0, 0x4804C034
+.equ GPIO1_RISINGDETECT,    0x4804C148
+
+/* LEDs */
+.equ LED_OUT_MASK,   0x01E10000
+.equ LED_INT_MASK,   0x01E00000
+.equ LED_EXT_MASK,   0x00010000
+
+/* INTC */
+.equ INTC_BASE,       0x48200000
+.equ INTC_SIR_IRQ,    0x40
+.equ INTC_CONTROL,    0x48
+.equ INTC_MIR_CLEAR3, 0xE8
+.equ IRQ_GPIO1,       98
+.equ MIR3_BIT_GPIO1,  (1 << 2)
+
+/* CONTROL MODULE */
+.equ CONTROL_BASE,    0x44E10000
+.equ CONF_GPMC_BEN1,  0x878
+
+/* CPSR */
+.equ CPSR_I,          0x80
+.equ CPSR_F,          0x40
+.equ CPSR_SVC,        0x13
+
+/* STACKS */
+.equ STACK_TOP_SVC,   0x80010000
+.equ STACK_TOP_IRQ,   0x8000F000
+
+/* BITS */
+.equ BIT_LED21,   (1 << 21)
+.equ BIT_LED22,   (1 << 22)
+.equ BIT_LED23,   (1 << 23)
+.equ BIT_LED24,   (1 << 24)
+.equ BIT_LED_EXT, (1 << 16)
+.equ BIT_BOTAO,   (1 << 28)
+
+/* WATCHDOG TIMER 1 */
+.equ WDT1_BASE,   0x44E35000
+.equ WDT_WSPR,    0x48
+.equ WDT_WWPS,    0x34
+.equ W_PEND_WSPR, (1 << 4)
+
+/* =====================================================
+   DADOS
+   ===================================================== */
+.section .data
+modo:   .word 0
+
+/* =====================================================
+   IVT
+   ===================================================== */
+.section .text
+.align 5
+
+_vector_table:
+    b _start
+    b .
+    b .
+    b .
+    b .
+    nop
+    b _irq_handler
+    b .
+
+/* =====================================================
+   START
+   ===================================================== */
+_start:
+    /* VBAR */
+    ldr r0, =_vector_table
+    mcr p15, 0, r0, c12, c0, 0
+    isb
+
+    /* Modo SVC */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #CPSR_SVC
+    orr r0, r0, #(CPSR_I | CPSR_F)
+    msr cpsr_c, r0
+    ldr sp, =STACK_TOP_SVC
+
+    /* DESABILITA WATCHDOG */
+    bl disable_wdt
+
+    /* Modo IRQ */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x12
+    orr r0, r0, #(CPSR_I | CPSR_F)
+    msr cpsr_c, r0
+    ldr sp, =STACK_TOP_IRQ
+
+    /* Volta para SVC */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #CPSR_SVC
+    orr r0, r0, #(CPSR_I | CPSR_F)
+    msr cpsr_c, r0
+
+    bl gpio_setup
+    bl pinmux_botao
+    bl intc_setup
+    bl gpio_irq_setup
+
+    /* Habilita IRQ global */
+    mrs r0, cpsr
+    bic r0, r0, #CPSR_I
+    msr cpsr_c, r0
+
+/* =====================================================
+   LOOP PRINCIPAL
+   ===================================================== */
+main_loop:
+    ldr r0, =modo
+    ldr r1, [r0]
+    cmp r1, #0
+    beq leds_internos
+    b   leds_externo
+
+/* =====================================================
+   LEDs INTERNOS
+   ===================================================== */
+leds_internos:
+    bl clear_all_leds
+    ldr r0, =GPIO1_SETDATAOUT
+
+    ldr r1, =BIT_LED21
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    ldr r1, =BIT_LED22
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    ldr r1, =BIT_LED23
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    ldr r1, =BIT_LED24
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    b main_loop
+
+/* =====================================================
+   LED EXTERNO
+   ===================================================== */
+leds_externo:
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =BIT_LED_EXT
+    str r1, [r0]
+    bl delay
+
+    ldr r0, =GPIO1_CLEARDATAOUT
+    str r1, [r0]
+    bl delay
+
+    b main_loop
+
+/* =====================================================
+   CLEAR LEDs
+   ===================================================== */
+clear_all_leds:
+    ldr r0, =GPIO1_CLEARDATAOUT
+    ldr r1, =LED_OUT_MASK
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   GPIO SETUP
+   ===================================================== */
+gpio_setup:
+    ldr r0, =CM_PER_GPIO1_CLKCTRL
+    mov r1, #2
+    str r1, [r0]
+
+    ldr r0, =GPIO1_OE
+    ldr r1, [r0]
+    ldr r2, =LED_OUT_MASK
+    bic r1, r1, r2
+    orr r1, r1, #BIT_BOTAO
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   PINMUX
+   ===================================================== */
+pinmux_botao:
+    ldr r0, =CONTROL_BASE
+    ldr r1, =CONF_GPMC_BEN1
+    add r0, r0, r1
+    mov r1, #0x2F     
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   INTC
+   ===================================================== */
+intc_setup:
+    ldr r0, =INTC_BASE
+    ldr r1, =INTC_MIR_CLEAR3
+    add r0, r0, r1
+    mov r1, #MIR3_BIT_GPIO1
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   GPIO IRQ
+   ===================================================== */
+gpio_irq_setup:
+    ldr r0, =GPIO1_IRQSTATUS_SET_0
+    mov r1, #BIT_BOTAO
+    str r1, [r0]
+
+    ldr r0, =GPIO1_RISINGDETECT
+    ldr r1, [r0]
+    orr r1, r1, #BIT_BOTAO
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   IRQ HANDLER
+   ===================================================== */
+_irq_handler:
+    stmfd sp!, {r0-r12, lr}
+    mrs   r11, spsr
+
+    @ --- lê número da IRQ ativa ---
+    ldr r0, =INTC_BASE
+    ldr r1, =INTC_SIR_IRQ
+    add r0, r0, r1          @ r0 = &INTC_SIR_IRQ
+    ldr r2, [r0]            @ r2 = INTC_SIR_IRQ
+    and r2, r2, #0x7F       @ bits 0–6 = número da IRQ [file:72]
+
+    mov r3, #IRQ_GPIO1      @ 98
+    cmp r2, r3
+    bne irq_ack_only        @ se não for 98, só reconhece e sai
+
+    @ --- aqui você sabe que é a IRQ do GPIO1 (botão) ---
+
+    @ alterna 'modo'
+    ldr r4, =modo
+    ldr r5, [r4]
+    eor r5, r5, #1
+    str r5, [r4]
+
+    @ limpa flag de GPIO1_28
+    ldr r0, =GPIO1_IRQSTATUS_0
+    mov r1, #BIT_BOTAO
+    str r1, [r0]
+
+irq_ack_only:
+    @ acknowledge no INTC_CONTROL
+    ldr r0, =INTC_BASE
+    ldr r1, =INTC_CONTROL
+    add r0, r0, r1
+    mov r2, #1
+    str r2, [r0]
+
+    msr   spsr_cxsf, r11
+    ldmfd sp!, {r0-r12, lr}
+    subs  pc, lr, #4
+
+
+/* =====================================================
+   WATCHDOG – DESABILITA
+   ===================================================== */
+disable_wdt:
+    ldr r0, =WDT1_BASE
+
+    ldr r1, =0xAAAA
+    str r1, [r0, #WDT_WSPR]
+wdt1:
+    ldr r2, [r0, #WDT_WWPS]
+    tst r2, #W_PEND_WSPR
+    bne wdt1
+
+    ldr r1, =0x5555
+    str r1, [r0, #WDT_WSPR]
+wdt2:
+    ldr r2, [r0, #WDT_WWPS]
+    tst r2, #W_PEND_WSPR
+    bne wdt2
+
+    bx lr
+
+/* =====================================================
+   DELAY
+   ===================================================== */
+delay:
+    ldr r2, =0x7FFFFFF
+1:
+    subs r2, r2, #1
+    bne 1b
+    bx lr

@@ -1,0 +1,642 @@
+@ ============================================================================
+@ DEFINIÇÕES DE ENDEREÇOS DE MEMÓRIA - BeagleBone Black GPIO
+@ ============================================================================
+.equ CM_PER_GPIO1_CLKCTRL,     0x44E000AC  @ Controle de clock do GPIO1
+.equ GPIO1_BASE,               0x4804C000  @ Endereço base do GPIO1
+.equ GPIO1_OE,                 0x4804C134  @ Direção (0=saída, 1=entrada)
+.equ GPIO1_SETDATAOUT,         0x4804C194  @ Liga LEDs (set bits)
+.equ GPIO1_CLEARDATAOUT,       0x4804C190  @ Desliga LEDs (clear bits)
+.equ GPIO1_DATAIN,             0x4804C138  @ Leitura de entrada (botão)
+
+.global _start
+
+@ ============================================================================
+@ PONTO DE ENTRADA PRINCIPAL
+@ ============================================================================
+_start:
+    @ --- Modo Supervisor ---
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x13
+    orr r0, r0, #0xC0
+    msr cpsr_c, r0
+
+    bl gpio_setup
+    mov r5, #0                      @ r5 = modo: 0 = LEDs internos, 1 = modo alternativo
+
+@ ============================================================================
+@ LOOP PRINCIPAL
+@ ============================================================================
+main_loop:
+    cmp r5, #0
+    beq leds_internos
+    bne leds_internos               @ (não há mais LED externo)
+
+@ ============================================================================
+@ SEQUÊNCIA DOS LEDs INTERNOS (GPIO1_21, 22, 23, 24)
+@ ============================================================================
+leds_internos:
+    bl clear_all_leds
+
+    @ --- LED 21 ---
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =0x00200000
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    @ --- LED 22 ---
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =0x00400000
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    @ --- LED 23 ---
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =0x00800000
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    @ --- LED 24 ---
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =0x01000000
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    bl check_button_toggle
+    b main_loop
+
+@ ============================================================================
+@ DESLIGA TODOS OS LEDs INTERNOS
+@ ============================================================================
+clear_all_leds:
+    ldr r0, =GPIO1_CLEARDATAOUT
+    ldr r1, =0x01E00000             @ Bits 21,22,23,24 (sem bit 16)
+    str r1, [r0]
+    bx lr
+
+@ ============================================================================
+@ CONFIGURAÇÃO DO GPIO
+@ ============================================================================
+gpio_setup:
+    @ Habilita clock do GPIO1
+    ldr r0, =CM_PER_GPIO1_CLKCTRL
+    mov r1, #0x2
+    str r1, [r0]
+
+    @ Configura direção dos pinos
+    ldr r0, =GPIO1_OE
+    ldr r1, [r0]
+
+    @ LEDs internos como saída
+    bic r1, r1, #(1 << 21)
+    bic r1, r1, #(1 << 22)
+    bic r1, r1, #(1 << 23)
+    bic r1, r1, #(1 << 24)
+
+    @ Botão (GPIO1_28) como entrada
+    orr r1, r1, #(1 << 28)
+
+    str r1, [r0]
+    bx lr
+
+@ ============================================================================
+@ VERIFICA BOTÃO (toggle entre modos)
+@ ============================================================================
+check_button_toggle:
+    ldr r0, =GPIO1_DATAIN
+    ldr r1, =0x10000000             @ Bit 28
+
+wait_press:
+    ldr r2, [r0]
+    tst r2, r1
+    beq wait_press                  @ Espera pressionar
+
+    eor r5, r5, #1                  @ Alterna modo (0 <-> 1)
+
+wait_release:
+    ldr r2, [r0]
+    tst r2, r1
+    bne wait_release                @ Espera soltar
+    bx lr
+
+@ ============================================================================
+@ DELAY POR SOFTWARE
+@ ============================================================================
+delay:
+    ldr r2, =0x6FFFFFF
+delay_loop:
+    subs r2, r2, #1
+    bne delay_loop
+    bx lr
+
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+LEDS INTERNOS
+@ ============================================================================
+@ DEFINIÇÕES DE ENDEREÇOS DE MEMÓRIA - BeagleBone Black GPIO
+@ ============================================================================
+.equ CM_PER_GPIO1_CLKCTRL,     0x44E000AC      @ Controle de clock do GPIO1
+.equ GPIO1_BASE,               0x4804C000      @ Base do módulo GPIO1
+.equ GPIO1_OE,                 0x4804C134      @ Direção (Output Enable)
+.equ GPIO1_SETDATAOUT,         0x4804C194      @ Setar pinos (ligar LED)
+.equ GPIO1_CLEARDATAOUT,       0x4804C190      @ Limpar pinos (desligar LED)
+.equ GPIO1_DATAIN,             0x4804C138      @ Leitura dos pinos (botão)
+
+.global _start
+
+@ ============================================================================
+@ PONTO DE ENTRADA
+@ ============================================================================
+_start:
+    @ --- Configura modo supervisor ---
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x13
+    orr r0, r0, #0xC0
+    msr cpsr_c, r0
+
+    bl gpio_setup          @ Configura os GPIOs
+
+@ ============================================================================
+@ LOOP PRINCIPAL - Acende o LED quando o botão for pressionado
+@ ============================================================================
+main_loop:
+    ldr r0, =GPIO1_DATAIN      @ Endereço do registrador de entrada
+    ldr r1, =0x10000000        @ Máscara para GPIO1_28 (botão)
+
+    ldr r2, [r0]               @ Lê o estado dos pinos
+    tst r2, r1                 @ Testa se o botão está pressionado
+
+    beq led_off                @ Se não pressionado, apaga LED
+    bne led_on                 @ Se pressionado, acende LED
+
+led_on:
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =0x00010000        @ GPIO1_16 (LED externo)
+    str r1, [r0]               @ Liga LED
+    b main_loop
+
+led_off:
+    ldr r0, =GPIO1_CLEARDATAOUT
+    ldr r1, =0x00010000        @ GPIO1_16 (LED externo)
+    str r1, [r0]               @ Desliga LED
+    b main_loop
+
+@ ============================================================================
+@ FUNÇÃO: gpio_setup
+@ Configura clock, LED como saída e botão como entrada
+@ ============================================================================
+gpio_setup:
+    @ --- Habilita clock do módulo GPIO1 ---
+    ldr r0, =CM_PER_GPIO1_CLKCTRL
+    mov r1, #0x2
+    str r1, [r0]
+
+    @ --- Configura pinos ---
+    ldr r0, =GPIO1_OE
+    ldr r1, [r0]
+
+    @ LED externo = saída (bit 16 = 0)
+    bic r1, r1, #(1 << 16)
+
+    @ Botão = entrada (bit 28 = 1)
+    orr r1, r1, #(1 << 28)
+
+    str r1, [r0]
+    bx lr
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+LED INTERNO E EXTERNO
+@ ============================================================================
+@ DEFINIÇÕES DE ENDEREÇOS DE MEMÓRIA 
+@ ============================================================================
+.equ CM_PER_GPIO1_CLKCTRL,     0x44E000AC  @ Controle de clock do GPIO1
+.equ GPIO1_BASE,               0x4804C000
+.equ GPIO1_OE,                 0x4804C134  @ Direção (0=saída, 1=entrada)
+.equ GPIO1_SETDATAOUT,         0x4804C194  @ Liga LEDs
+.equ GPIO1_CLEARDATAOUT,       0x4804C190  @ Desliga LEDs
+.equ GPIO1_DATAIN,             0x4804C138  @ Leitura do botão
+
+.global _start
+
+@ ============================================================================
+@ PONTO DE ENTRADA
+@ ============================================================================
+_start:
+    @ --- Modo Supervisor ---
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x13
+    orr r0, r0, #0xC0
+    msr cpsr_c, r0
+
+    bl gpio_setup
+    mov r5, #0                  @ r5 = modo (0 internos / 1 externo)
+
+@ ============================================================================
+@ LOOP PRINCIPAL
+@ ============================================================================
+main_loop:
+    cmp r5, #0
+    beq leds_internos
+    b leds_externo
+
+@ ============================================================================
+@ SEQUÊNCIA DOS LEDs INTERNOS (GPIO1_21–24)
+@ ============================================================================
+leds_internos:
+    bl clear_all_leds
+
+    @ LED 21
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =0x00200000
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    @ LED 22
+    ldr r1, =0x00400000
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    @ LED 23
+    ldr r1, =0x00800000
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    @ LED 24
+    ldr r1, =0x01000000
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    bl check_button_toggle
+    b main_loop
+
+@ ============================================================================
+@ LED EXTERNO (GPIO1_16)
+@ ============================================================================
+leds_externo:
+    @ Liga LED externo
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =0x00010000          @ Bit 16
+    str r1, [r0]
+    bl delay
+
+    @ Desliga LED externo
+    ldr r0, =GPIO1_CLEARDATAOUT
+    str r1, [r0]
+    bl delay
+
+    bl check_button_toggle
+    b main_loop
+
+@ ============================================================================
+@ DESLIGA TODOS OS LEDs
+@ ============================================================================
+clear_all_leds:
+    ldr r0, =GPIO1_CLEARDATAOUT
+    ldr r1, =0x01E10000          @ Bits 21–24 + bit 16
+    str r1, [r0]
+    bx lr
+
+@ ============================================================================
+@ CONFIGURAÇÃO DO GPIO
+@ ============================================================================
+gpio_setup:
+    @ Habilita clock do GPIO1
+    ldr r0, =CM_PER_GPIO1_CLKCTRL
+    mov r1, #0x2
+    str r1, [r0]
+
+    @ Configura direções
+    ldr r0, =GPIO1_OE
+    ldr r1, [r0]
+
+    @ LEDs internos como saída
+    bic r1, r1, #(1 << 21)
+    bic r1, r1, #(1 << 22)
+    bic r1, r1, #(1 << 23)
+    bic r1, r1, #(1 << 24)
+
+    @ LED externo (GPIO1_16) como saída
+    bic r1, r1, #(1 << 16)
+
+    @ Botão (GPIO1_28) como entrada
+    orr r1, r1, #(1 << 28)
+
+    str r1, [r0]
+    bx lr
+
+@ ============================================================================
+@ VERIFICA BOTÃO (POLLING)
+@ ============================================================================
+check_button_toggle:
+    ldr r0, =GPIO1_DATAIN
+    ldr r1, =0x10000000          @ Bit 28
+
+wait_press:
+    ldr r2, [r0]
+    tst r2, r1
+    beq wait_press
+
+    eor r5, r5, #1               @ Alterna modo
+
+wait_release:
+    ldr r2, [r0]
+    tst r2, r1
+    bne wait_release
+    bx lr
+
+@ ============================================================================
+@ DELAY
+@ ============================================================================
+delay:
+    ldr r2, =0x6FFFFFF
+delay_loop:
+    subs r2, r2, #1
+    bne delay_loop
+    bx lr
+
+
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+INTERRUPÇÃO
+
+.syntax unified
+.cpu cortex-a8
+.arm
+
+.global _start
+
+/* =====================================================
+   ENDEREÇOS
+   ===================================================== */
+
+/* GPIO1 */
+.equ CM_PER_GPIO1_CLKCTRL,  0x44E000AC
+.equ GPIO1_BASE,            0x4804C000
+.equ GPIO1_OE,              0x4804C134
+.equ GPIO1_SETDATAOUT,      0x4804C194
+.equ GPIO1_CLEARDATAOUT,    0x4804C190
+.equ GPIO1_IRQSTATUS_0,     0x4804C02C
+.equ GPIO1_IRQSTATUS_SET_0, 0x4804C034
+.equ GPIO1_RISINGDETECT,    0x4804C148
+
+/* LEDs */
+.equ LED_OUT_MASK,   0x01E10000   @ LEDs 21–24 + LED externo
+.equ LED_INT_MASK,   0x01E00000   @ LEDs internos
+.equ LED_EXT_MASK,   0x00010000   @ LED externo
+.equ LED_CLEAR_MASK, 0x01E10000   @ LEDs 21–24 + LED externo (16)
+
+/* INTC */
+.equ INTC_BASE,             0x48200000
+.equ INTC_SIR_IRQ,          0x40
+.equ INTC_CONTROL,          0x48
+.equ INTC_MIR_CLEAR3,       0xE8
+.equ IRQ_GPIO1,             98
+.equ MIR3_BIT_GPIO1,        (1 << 2)
+
+/* CONTROL MODULE */
+.equ CONTROL_BASE,          0x44E10000
+.equ CONF_GPMC_BEN1,        0x878      @ GPIO1_28 (P9_12)
+
+/* CPSR */
+.equ CPSR_I,                0x80
+.equ CPSR_F,                0x40
+.equ CPSR_SVC,              0x13
+
+/* STACKS */
+.equ STACK_TOP_SVC,         0x80010000
+.equ STACK_TOP_IRQ,         0x8000F000
+
+/* BITS */
+.equ BIT_LED21,             (1 << 21)
+.equ BIT_LED22,             (1 << 22)
+.equ BIT_LED23,             (1 << 23)
+.equ BIT_LED24,             (1 << 24)
+.equ BIT_LED_EXT,           (1 << 16)
+.equ BIT_BOTAO,             (1 << 28)
+
+/* =====================================================
+   DADOS
+   ===================================================== */
+.section .data
+modo:   .word 0      @ 0 = LEDs internos | 1 = LED externo
+
+/* =====================================================
+   IVT — TEM QUE ESTAR EM RAM EXECUTÁVEL
+   ===================================================== */
+.section .text
+.align 5
+
+_vector_table:
+    b _start
+    b .
+    b .
+    b .
+    b .
+    nop
+    b _irq_handler
+    b .
+
+/* =====================================================
+   START
+   ===================================================== */
+_start:
+    /* VBAR */
+    ldr r0, =_vector_table
+    mcr p15, 0, r0, c12, c0, 0
+    isb
+
+    /* Modo SVC */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #CPSR_SVC
+    orr r0, r0, #(CPSR_I | CPSR_F)
+    msr cpsr_c, r0
+    ldr sp, =STACK_TOP_SVC
+
+    /* Modo IRQ */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #0x12
+    orr r0, r0, #(CPSR_I | CPSR_F)
+    msr cpsr_c, r0
+    ldr sp, =STACK_TOP_IRQ
+
+    /* Volta para SVC */
+    mrs r0, cpsr
+    bic r0, r0, #0x1F
+    orr r0, r0, #CPSR_SVC
+    orr r0, r0, #(CPSR_I | CPSR_F)
+    msr cpsr_c, r0
+
+    bl gpio_setup
+    bl pinmux_botao
+    bl intc_setup
+    bl gpio_irq_setup
+
+    /* Habilita IRQ global */
+    mrs r0, cpsr
+    bic r0, r0, #CPSR_I
+    msr cpsr_c, r0
+
+/* =====================================================
+   LOOP PRINCIPAL (SEM POLLING)
+   ===================================================== */
+main_loop:
+    ldr r0, =modo
+    ldr r1, [r0]
+    cmp r1, #0
+    beq leds_internos
+    b   leds_externo
+
+/* =====================================================
+   LEDs INTERNOS
+   ===================================================== */
+leds_internos:
+    bl clear_all_leds
+    ldr r0, =GPIO1_SETDATAOUT
+
+    ldr r1, =BIT_LED21
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    ldr r1, =BIT_LED22
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    ldr r1, =BIT_LED23
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    ldr r1, =BIT_LED24
+    str r1, [r0]
+    bl delay
+    bl clear_all_leds
+
+    b main_loop
+
+/* =====================================================
+   LED EXTERNO
+   ===================================================== */
+leds_externo:
+    ldr r0, =GPIO1_SETDATAOUT
+    ldr r1, =BIT_LED_EXT
+    str r1, [r0]
+    bl delay
+
+    ldr r0, =GPIO1_CLEARDATAOUT
+    str r1, [r0]
+    bl delay
+
+    b main_loop
+
+/* =====================================================
+   CLEAR LEDs
+   ===================================================== */
+clear_all_leds:
+    ldr r0, =GPIO1_CLEARDATAOUT
+    ldr r1, =LED_OUT_MASK
+    str r1, [r0]
+    bx lr
+
+
+/* =====================================================
+   GPIO SETUP
+   ===================================================== */
+gpio_setup:
+    ldr r0, =CM_PER_GPIO1_CLKCTRL
+    mov r1, #2
+    str r1, [r0]
+
+    ldr r0, =GPIO1_OE
+    ldr r1, [r0]
+ldr r2, =LED_OUT_MASK
+bic r1, r1, r2
+    orr r1, r1, #BIT_BOTAO
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   PINMUX
+   ===================================================== */
+pinmux_botao:
+    ldr r0, =CONTROL_BASE
+    ldr r1, =CONF_GPMC_BEN1
+    add r0, r0, r1
+    mov r1, #0x37      @ Mode 7 + RXACTIVE
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   INTC
+   ===================================================== */
+intc_setup:
+    ldr r0, =INTC_BASE
+    ldr r1, =INTC_MIR_CLEAR3
+    add r0, r0, r1
+    mov r1, #MIR3_BIT_GPIO1
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   GPIO IRQ
+   ===================================================== */
+gpio_irq_setup:
+    ldr r0, =GPIO1_IRQSTATUS_SET_0
+    mov r1, #BIT_BOTAO
+    str r1, [r0]
+
+    ldr r0, =GPIO1_RISINGDETECT
+    ldr r1, [r0]
+    orr r1, r1, #BIT_BOTAO
+    str r1, [r0]
+    bx lr
+
+/* =====================================================
+   IRQ HANDLER
+   ===================================================== */
+_irq_handler:
+    stmfd sp!, {r0-r12, lr}
+    mrs r11, spsr
+
+    ldr r0, =modo
+    ldr r1, [r0]
+    eor r1, r1, #1
+    str r1, [r0]
+
+    ldr r0, =GPIO1_IRQSTATUS_0
+    mov r1, #BIT_BOTAO
+    str r1, [r0]
+
+    ldr r0, =INTC_BASE
+    ldr r1, =INTC_CONTROL
+    add r0, r0, r1
+    mov r1, #1
+    str r1, [r0]
+
+    msr spsr_cxsf, r11
+    ldmfd sp!, {r0-r12, lr}
+    subs pc, lr, #4
+
+/* =====================================================
+   DELAY
+   ===================================================== */
+delay:
+    ldr r2, =0x6FFFFFF
+1:
+    subs r2, r2, #1
+    bne 1b
+    bx lr
